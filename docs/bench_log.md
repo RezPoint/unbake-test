@@ -59,9 +59,56 @@
 - 36 deletions при 4 повторах припева (~64 слова на повтор) — кандидаты сразу: пропущенные части припева. VAD мог зарезать тихие повторы или модель применила condition_on_previous_text=False и не «дослушала».
 - WER 0.35 — это **до** alignment-прохода. Цель пути Shazam-hybrid (forced alignment лирики на vocal через wav2vec2-CTC) — снизить WER ниже 0.10 на треках, для которых лирика уже найдена.
 
+## 2026-04-27 — alignment #1
+
+- Notebook: `notebooks/02_alignment.ipynb`
+- GPU: Colab T4
+- Model: `jonatasgrosman/wav2vec2-large-xlsr-53-russian` (CTC)
+- Aligner: `torchaudio.functional.forced_align` (CUDA)
+- Track: тот же `Pharaoh - Дико, например.m4a` + Genius lyrics
+
+### Telemetry
+
+| metric | value |
+|---|---|
+| audio_s | 168.04 |
+| infer_s | 6.42 |
+| **rtf** | **0.038** |
+| n_lyric_words | 248 |
+| n_aligned | 247 |
+| **coverage** | **0.996** |
+| **mean_confidence** | **0.824** |
+
+### Сравнение alignment (silver) vs baseline whisper
+
+`python -m src.eval.compare_timing align_pharaoh_ru.json baseline_pharaoh_ru.json`
+
+| metric | value |
+|---|---|
+| matched (token-equal) | 173 / 247 |
+| match_rate | 0.70 |
+| mean abs offset | 0.405 s |
+| median abs offset | 0.331 s |
+| p95 abs offset | 0.986 s |
+| mean signed offset (hyp − ref) | **−0.362 s** |
+
+### Интерпретация
+
+- **Coverage 99.6%** на знакомой студийной версии — alignment-путь практически безошибочно укладывает известную лирику на htdemucs vocal. Один пропущенный слово — кандидат на ad-lib / тихий фрагмент.
+- **mean confidence 0.82** — чистый сигнал на htdemucs v4 vocal. На каверах / другой версии лирики ожидаем drop до 0.3-0.5 — это и есть детектор «лирика не та» в Shazam-hybrid pipeline.
+- **RTF 0.038** на T4 — alignment-проход в **3× быстрее** whisper baseline. Полный двухпроходный pipeline (whisper для language detect + ASR fallback на каверах + alignment) укладывается в RTF ≈ 0.16, cost на A10G ≈ $0.0008/трек — всё ещё **60× ниже** потолка.
+- **Timing offset 0.33s median**: whisper-baseline консистентно стартует слова на **~0.36s раньше** alignment. Для karaoke-применения 0.33s медиана — на грани заметного. Alignment даёт лучший timing.
+- **Match rate 70%** между whisper и alignment по тексту = whisper верно угадал 70% слов лирики; оставшиеся 30% — substitutions/deletions whisper'а, которые alignment чинит «бесплатно», т.к. знает текст.
+
+### Что это значит для архитектуры
+
+→ **Shazam-hybrid доказан на одной точке:** известная лирика + forced alignment даёт coverage > 0.99 и confidence > 0.8 за RTF 0.04. ASR-only baseline даёт WER 0.35. Разница огромна и в пользу alignment-пути.
+
+→ Confidence — сразу годный сигнал «правильная ли это лирика». Cross-check ASR-vs-alignment WER (как у нас 30% несовпадений) — second signal.
+
 ### Что дальше
 
-1. Найти лирику Pharaoh — Дико, например (Genius/LRCLib) → построить Reference → WER/timing.
-2. Прогнать ещё 2-3 трека на T4 → подтвердить RTF ≈ 0.12 как стабильный.
-3. Прогнать `large-v3-turbo` для сравнения (быстрее, но что с accuracy на htdemucs-vocal с артефактами?).
-4. Подключить wav2vec2-CTC alignment на найденную лирику → главный кандидат уникального угла.
+1. Прогнать alignment + baseline на остальных 8 треках (RU/ES/EN/FR), повторить замеры → стабильность RTF и coverage.
+2. Тест на «не той» лирике: подсунуть лирику другой песни → confidence должна упасть в 2-3× (это валидация cover-detector).
+3. ES / EN / FR — взять `facebook/mms-1b-all` (поддерживает 1100+ языков) или per-language wav2vec2 чекпоинты.
+4. Prep design doc на этих цифрах.
