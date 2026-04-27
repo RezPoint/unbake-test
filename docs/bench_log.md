@@ -38,6 +38,27 @@
 
 → Cost не является активным constraint. Можно тратить «бюджет» на accuracy: второй проход alignment, больший beam_size, ensemble, post-filter по confidence.
 
+### WER vs Genius lyrics
+
+`python -m src.eval.text_wer data/lyrics/ru/Pharaoh\ -\ Дико,\ например.txt data/transcripts/baseline_pharaoh_ru.json`
+
+| metric | value |
+|---|---|
+| **WER** | **0.347** |
+| **CER** | **0.201** |
+| n_ref words | 248 |
+| n_hyp words | 223 |
+| hits | 173 |
+| substitutions | 39 |
+| deletions | 36 |
+| insertions | 11 |
+
+Нормализация: lowercase, ё→е, `(пау-пау-пау)` и `[Chorus]`-метки выкинуты, пунктуация выкинута.
+
+**Интерпретация:**
+- 36 deletions при 4 повторах припева (~64 слова на повтор) — кандидаты сразу: пропущенные части припева. VAD мог зарезать тихие повторы или модель применила condition_on_previous_text=False и не «дослушала».
+- WER 0.35 — это **до** alignment-прохода. Цель пути Shazam-hybrid (forced alignment лирики на vocal через wav2vec2-CTC) — снизить WER ниже 0.10 на треках, для которых лирика уже найдена.
+
 ### Что дальше
 
 1. Найти лирику Pharaoh — Дико, например (Genius/LRCLib) → построить Reference → WER/timing.
