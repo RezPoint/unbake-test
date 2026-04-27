@@ -5,9 +5,25 @@
 ### День 1 (сегодня) — фундамент
 - [x] Скелет репо, eval-модуль (`src/eval/`), smoke-тесты.
 - [x] Baseline runner (`src/baseline.py`).
-- [ ] Push на GitHub (приватный или публичный — решить).
-- [ ] Скачать их датасет с Yandex Disk локально, посмотреть структуру.
+- [x] Скачать их датасет с Yandex Disk локально, посмотреть структуру.
+- [ ] Push на GitHub (приватный).
+- [ ] Залить датасет в Google Drive один раз, в Colab монтировать.
 - [ ] Прогнать baseline на 1 треке в Colab T4 → есть ли GPU вообще, какие RTF/cost.
+
+## Что в их датасете
+
+`unbake-vocals/` на Yandex Disk (~50 МБ, 9 треков, только m4a-вокал, лирик нет):
+
+| Lang | Tracks |
+|---|---|
+| ru (4) | Miyagi & Эндшпиль — Last of Us; Pharaoh — Дико, например; Би-2 — Полковнику никто не пишет; Скриптонит — Танцуй сама |
+| es (3) | Peso Pluma & Anitta — BELLAKEO; Peso Pluma — BRUCE WAYNE; Peso Pluma — SOLICITADO |
+| en (1) | Post Malone & 21 Savage — rockstar |
+| fr (1) | Cœur de pirate — Place de la République |
+
+**Покрыто только 4 языка из заявленных 8.** IT, PT, JP, PL — собирать самим: взять студийные треки → прогнать через htdemucs v4 (htdemucs, не ft) → получить аналогичный вокал. По 2-3 трека на язык хватит.
+
+Лирик в архиве нет — искать вручную (Genius / LRCLib / Musixmatch). Это упомянуть в design doc как ожидаемое.
 
 ### День 2 — alignment-путь
 - [ ] Поднять wav2vec2-CTC alignment (или WhisperX) на 2-3 RU треках с известной лирикой.
