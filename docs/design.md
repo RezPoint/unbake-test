@@ -166,7 +166,9 @@ language: ru | en | es | fr | it | pt | ja | pl   # optional, autodetect via whi
 
 ## 7. Цифры из бенчмарков
 
-Полная таблица — `docs/bench_log.md`. Сводно (Pharaoh — Дико, например, RU, htdemucs v4 vocal, 168s):
+> **Caveat (n=1):** ниже — измерения на одной точке датасета (Pharaoh — Дико, например, RU, 168s). Это **PoC, а не статистика**. Все таргеты в §6 — гипотезы, требующие подтверждения на расширенном dataset'е (см. §10). Я выбрал глубину прохода (baseline → alignment → control) вместо ширины, потому что без проверки cover-detector'а архитектура висит в воздухе. На §10/3-4 — план добора цифр.
+
+Полная таблица — `docs/bench_log.md`. Сводно:
 
 | | baseline (whisper large-v3) | alignment (XLSR-53 + forced_align) |
 |---|---|---|
@@ -206,10 +208,10 @@ Self-hosted, single-GPU. Цены Runpod community:
 | день | артефакт |
 |---|---|
 | 1 (done) | repo, eval module, baseline на 1 RU треке: RTF 0.118, WER 0.347 |
-| 2 (done) | forced alignment PoC, cover-detector эксперимент, первые цифры |
-| 3 | alignment+baseline на оставшихся 8 треках dataset'а; alignment на ES/EN/FR через MMS |
+| 2 (done) | forced alignment PoC, cover-detector эксперимент с честным negative result, second signal валидирован, design doc |
+| 3 (next) | alignment+baseline на оставшихся 8 треках dataset'а; alignment на ES/EN/FR через MMS |
 | 4 | калибровка порогов cover-detector'а на полном dataset'е; добор IT/PT/JP/PL треков (htdemucs из публичных студий) |
-| 5 | финальные таблицы, design doc → @vkrot |
+| 5 | финальные таблицы, итеративный пересмотр design doc'а под наблюдённую вариацию |
 
 ## 11. Что оставлено за скобками
 
