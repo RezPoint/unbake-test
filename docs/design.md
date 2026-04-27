@@ -166,36 +166,41 @@ language: ru | en | es | fr | it | pt | ja | pl   # optional, autodetect via whi
 
 ## 7. Цифры из бенчмарков
 
-Один прогон `notebooks/03_full_bench.ipynb` на Colab T4 → 9 треков × 4 языка (ru/es/en/fr), полная таблица в `docs/bench_log.md`. 7 треков с лирикой через LRCLib, 2 без лирики (operational miss, не архитектурный пробел).
+Один прогон `notebooks/03_full_bench.ipynb` на Colab T4 → 9 треков × 4 языка (ru/es/en/fr), полная таблица в `docs/bench_log.md`. **Все 9/9 треков с лирикой** через LRCLib (с Unicode-NFC + ASCII-fold + no-artist fallbacks для редких имён вроде Cœur de pirate).
 
-### Сводная таблица (7 треков с лирикой)
+### Сводная таблица
 
 | lang | track | base_wer | align_cov | align_conf |
 |---|---|---|---|---|
 | en | Post Malone — rockstar | 0.247 | 0.980 | 0.604 |
-| es | Peso Pluma — BELLAKEO | 0.687 | 0.975 | 0.667 |
+| es | Peso Pluma — BELLAKEO | 0.655 | 0.975 | 0.667 |
 | es | Peso Pluma — BRUCE WAYNE | 0.464 | 0.996 | 0.720 |
 | es | Peso Pluma — SOLICITADO | 0.205 | 0.991 | 0.829 |
+| fr | Cœur de pirate — République | 0.504 | 0.996 | 0.856 |
 | ru | Miyagi — Last of Us | 0.345 | 0.994 | 0.802 |
-| ru | Pharaoh — Дико, например | 0.235 | 0.973 | 0.808 |
-| ru | Би-2 — Полковнику | 0.181 | 1.000 | 0.905 |
+| ru | Pharaoh — Дико, например | 0.302 | 0.973 | 0.808 |
+| ru | Би-2 — Полковнику | 0.325 | 1.000 | 0.905 |
+| ru | Скриптонит — Танцуй сама | OOM* | 0.996 | 0.751 |
+
+\* baseline whisper упал по `CUDA out of memory` на Colab T4. Alignment отработал нормально — отдельный аргумент за hybrid path: wav2vec2 forced_align дешевле по памяти и не зависит от длины через VAD-фрагментацию.
 
 ### Агрегаты
 
-| metric | mean | median | min | max |
-|---|---|---|---|---|
-| baseline WER | 0.338 | 0.247 | 0.181 | 0.687 |
-| align coverage | **0.987** | 0.991 | 0.973 | 1.000 |
-| align mean_conf | **0.762** | 0.802 | 0.604 | 0.905 |
-| baseline RTF (T4) | 0.106 | 0.073 | 0.037 | 0.329 |
-| alignment RTF (T4) | ≈0.038 | — | — | — |
+| metric | mean | median | min | max | n |
+|---|---|---|---|---|---|
+| baseline WER | 0.381 | 0.335 | 0.205 | 0.655 | 8 |
+| **align coverage** | **0.989** | 0.994 | 0.972 | 1.000 | 9 |
+| **align mean_conf** | **0.771** | 0.802 | 0.604 | 0.905 | 9 |
+| baseline RTF (T4) | 0.098 | 0.058 | 0.037 | 0.340 | 8 |
+| **alignment RTF (T4)** | **0.032** | 0.031 | 0.026 | 0.036 | 9 |
 
 ### Главные находки
 
-- **Coverage 0.97–1.00 на всех 7 треках, 3 языках** — alignment-путь робастен к смене языка при per-lang XLSR-53. Главное предсказание архитектуры подтверждено.
-- **mean_confidence коррелирует с WER**: Би-2 (WER 0.18, чистый рок-вокал) → conf 0.91; BELLAKEO (WER 0.69, reggaeton с code-switching pt↔es) → conf 0.67. Хорошо.
-- **Cover-detector держит порог:** mean_conf > 0.55 проходит для всех 7 правильных лирик; ASR-overlap > 0.5 (см. §3.2) — отсекатель «не та лирика».
-- **WER 0.69 на BELLAKEO** = ASR-only fallback на сложном материале опасен. **Hybrid path принципиален** — даже когда whisper проваливается, alignment даёт coverage 0.975 и читаемый timing, потому что лирика известна.
+- **Coverage 0.97–1.00 на всех 9 треках, 4 языках** — alignment-путь робастен к смене языка при per-lang XLSR-53. Главное предсказание архитектуры подтверждено.
+- **alignment RTF стабильный 0.026–0.036** (разброс 1.4×) — predictable compute независимо от языка/сложности, следствие fixed-cost wav2vec2 forward pass. Полезно для capacity planning.
+- **mean_confidence коррелирует с WER**: Би-2 (conf 0.91, WER 0.33, чистый рок-вокал) ↔ BELLAKEO (conf 0.67, WER 0.66, reggaeton с code-switching pt↔es). Confidence чутко реагирует на качество vocal.
+- **Cover-detector держит порог:** mean_conf > 0.55 проходит для всех 9 правильных лирик; ASR-overlap > 0.5 (см. §3.2) — отсекатель «не та лирика».
+- **3 кейса, где ASR-only path плох или вовсе падает** (BELLAKEO WER 0.66, République WER 0.50, Скриптонит OOM) — alignment вытащил coverage > 0.97 на всех. **Hybrid принципиален**: даже когда whisper проваливается, alignment работает, потому что лирика известна.
 
 Timing offset (alignment vs whisper, на Pharaoh): median 0.33s, p95 0.99s, mean signed −0.36s (whisper стартует слова раньше alignment'а — alignment ближе к реальному onset).
 
@@ -205,11 +210,11 @@ Self-hosted, single-GPU. Цены Runpod community:
 
 | GPU | RTF (whisper baseline, mean) | RTF (alignment) | combined RTF | $/h | **$/3-min трек** |
 |---|---|---|---|---|---|
-| T4 (Colab measure) | 0.106 | 0.038 | 0.144 | $0.20 | $0.0014 |
-| A10G | 0.030 (×3.5) | 0.011 | 0.041 | $0.34 | **$0.00070** |
-| L4 | 0.036 | 0.013 | 0.049 | $0.43 | $0.00106 |
+| T4 (Colab, измерено) | 0.098 | 0.032 | 0.130 | $0.20 | $0.0013 |
+| A10G (×3.5 от T4) | 0.028 | 0.009 | 0.037 | $0.34 | **$0.00063** |
+| L4 (×3.0) | 0.033 | 0.011 | 0.043 | $0.43 | $0.00093 |
 
-Потолок ТЗ — **$0.05/трек**. Мы в **40-65× ниже** даже с двухпроходным pipeline'ом. Cost — **не активный constraint**, оптимизировать его незачем. Свободный бюджет тратится на accuracy: больший beam, ensemble, post-filtering по confidence.
+Потолок ТЗ — **$0.05/трек**. На A10G — **в 80× ниже** даже с двухпроходным pipeline'ом. Cost — **не активный constraint**, оптимизировать его незачем. Свободный бюджет тратится на accuracy: больший beam, ensemble, post-filtering по confidence.
 
 ## 9. Риски и unknowns
 

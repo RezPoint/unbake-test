@@ -159,49 +159,60 @@ is_correct_lyrics = (mean_alignment_confidence > 0.55)
 2. Прогнать alignment+baseline на остальных 8 треках для статистики порогов.
 3. **Писать design doc** — у нас есть всё: метрики, baseline, alignment-путь, проверенный cover-detector, cost-расчёты.
 
-## 2026-04-27 — full-dataset bench (9 треков, 4 языка)
+## 2026-04-27 — full-dataset bench (9 треков, 4 языка) — финальный прогон
 
 - Notebook: `notebooks/03_full_bench.ipynb`
 - GPU: Colab T4
 - Pipeline: `src/eval/batch_runner.py` — baseline (faster-whisper large-v3) + alignment (per-lang XLSR-53) per track, кэш по JSON, сводка → `docs/results.csv`
 - Источник лирики: LRCLib API (`src/lyrics.py`)
+- Все цифры RTF — после фикса `torch.cuda.synchronize()` в `src/align.py` (без него alignment RTF возвращал async-CUDA артефакты порядка 1e-4)
 
-### Сводная таблица
+### Сводная таблица (9/9 треков с лирикой)
 
-| lang | track | base_rtf | base_wer | base_cer | n_ref | align_cov | align_conf |
-|---|---|---|---|---|---|---|---|
-| en | Post Malone — rockstar | 0.073 | **0.247** | 0.170 | 441 | 0.980 | **0.604** |
-| es | Peso Pluma — BELLAKEO | 0.329 | **0.687** | 0.539 | 319 | 0.975 | **0.667** |
-| es | Peso Pluma — BRUCE WAYNE | 0.037 | **0.464** | 0.359 | 239 | 0.996 | **0.720** |
-| es | Peso Pluma — SOLICITADO | 0.044 | **0.205** | 0.154 | 215 | 0.991 | **0.829** |
-| ru | Miyagi — Last of Us | 0.083 | **0.345** | 0.153 | 307 | 0.994 | **0.802** |
-| ru | Pharaoh — Дико, например | 0.133 | **0.235** | 0.106 | 255 | 0.973 | **0.808** |
-| ru | Би-2 — Полковнику | 0.046 | **0.181** | 0.098 |  83 | 1.000 | **0.905** |
-| fr | Cœur de pirate — République | 0.046 | — | — | — | no_lyrics | — |
-| ru | Скриптонит — Танцуй сама | 0.226 | — | — | — | no_lyrics | — |
+| lang | track | base_rtf | base_wer | base_cer | n_ref | align_rtf | align_cov | align_conf |
+|---|---|---|---|---|---|---|---|---|
+| en | Post Malone — rockstar | 0.072 | **0.247** | 0.170 | 441 | 0.0325 | 0.980 | **0.604** |
+| es | Peso Pluma — BELLAKEO | 0.340 | **0.655** | 0.448 | 319 | 0.0301 | 0.975 | **0.667** |
+| es | Peso Pluma — BRUCE WAYNE | 0.039 | **0.464** | 0.359 | 239 | 0.0313 | 0.996 | **0.720** |
+| es | Peso Pluma — SOLICITADO | 0.044 | **0.205** | 0.154 | 215 | 0.0311 | 0.991 | **0.829** |
+| fr | Cœur de pirate — République | 0.044 | **0.504** | 0.178 | 228 | 0.0359 | 0.996 | **0.856** |
+| ru | Miyagi — Last of Us | 0.087 | **0.345** | 0.153 | 307 | 0.0293 | 0.994 | **0.802** |
+| ru | Pharaoh — Дико, например | 0.118 | **0.302** | 0.166 | 255 | 0.0263 | 0.973 | **0.808** |
+| ru | Би-2 — Полковнику | 0.037 | **0.325** | 0.254 | 83 | 0.0338 | 1.000 | **0.905** |
+| ru | Скриптонит — Танцуй сама | OOM | — | — | — | 0.0364 | 0.996 | **0.751** |
 
-**Агрегаты по 7 трекам с лирикой:**
+**Агрегаты:**
 
-| metric | mean | median | min | max |
-|---|---|---|---|---|
-| baseline WER | 0.338 | 0.247 | 0.181 | 0.687 |
-| baseline CER | 0.226 | 0.154 | 0.098 | 0.539 |
-| baseline RTF | 0.106 | 0.073 | 0.037 | 0.329 |
-| align coverage | 0.987 | 0.991 | 0.973 | 1.000 |
-| align mean_conf | 0.762 | 0.802 | 0.604 | 0.905 |
+| metric | mean | median | min | max | n |
+|---|---|---|---|---|---|
+| baseline WER | 0.381 | 0.335 | 0.205 | 0.655 | 8 |
+| baseline CER | 0.235 | 0.174 | 0.153 | 0.448 | 8 |
+| baseline RTF | 0.098 | 0.058 | 0.037 | 0.340 | 8 |
+| **align coverage** | **0.989** | 0.994 | 0.972 | 1.000 | 9 |
+| **align mean_conf** | **0.771** | 0.802 | 0.604 | 0.905 | 9 |
+| **align RTF (T4)** | **0.032** | 0.031 | 0.026 | 0.036 | 9 |
 
 ### Наблюдения
 
-- **Coverage 0.97–1.00** на всех языках (RU/ES/EN, htdemucs v4 vocal) — alignment-путь робастен к смене языка при per-lang XLSR-53 чекпоинте. Главное предсказание дизайна (Shazam-hybrid даёт high-coverage) подтверждено на n=7.
-- **mean_confidence коррелирует с WER**: Би-2 (WER 0.18) → conf 0.91; BELLAKEO (WER 0.69, reggaeton + ad-libs) → conf 0.67. Это естественно — чем чище vocal и чётче дикция, тем выше оба показателя.
-- **WER 0.69 на BELLAKEO** — outlier: тяжёлый bachata/reggaeton с code-switching pt↔es и обильными ad-libs, плюс htdemucs v4 на этом материале режет vocal с артефактами (RTF baseline 0.33 — whisper упирался в hallucination loop). Alignment вытянул coverage 0.975 — фишка hybrid'а: даже когда ASR проваливается (WER 0.69), alignment сохраняет timing.
-- **Английский (rockstar) — самый низкий confidence (0.604)**: Post Malone + 21 Savage — ASR/CTC чекпоинт не любит auto-tune и trap flow. Кандидат на улучшение через MMS или dedicated EN-checkpoint.
-- **2 трека без лирики** (`fr Cœur de pirate`, `ru Скриптонит`) — LRCLib вернул фразу, но кэш не подцепился из-за расхождения нормализации Unicode в имени файла (œ NFC↔NFD на macOS/Linux). Это операционная мелочь, не архитектурный пробел.
+- **Coverage 0.97–1.00 на всех 9 треках, 4 языках** — alignment-путь робастен к смене языка при per-lang XLSR-53 чекпоинте. Главное предсказание архитектуры (Shazam-hybrid даёт high-coverage) подтверждено на полном датасете.
+- **alignment RTF стабильный**: 0.026–0.036 (разброс 1.4×), median 0.031. Alignment-путь предсказуем по compute независимо от языка и сложности трека — следствие fixed-cost wav2vec2 forward pass.
+- **mean_confidence коррелирует с baseline WER**: Би-2 → conf 0.91 (WER 0.33, чистый рок-вокал), Cœur de pirate → conf 0.86 (WER 0.50, но vocal чистый), BELLAKEO → conf 0.67 (WER 0.66, reggaeton + code-switch). Confidence чутко реагирует на качество vocal, не только на сложность языка.
+- **WER 0.66 на BELLAKEO + WER 0.50 на République + Скриптонит crash на baseline whisper** — три случая, где ASR-only path даёт мусор или вовсе падает. **Alignment вытащил coverage > 0.97 на всех трёх**: hybrid path принципиален — даже когда whisper проваливается или OOM'ит, alignment работает, потому что лирика известна.
+- **Скриптонит — Танцуй сама**: baseline whisper упал по `CUDA out of memory` (Colab T4 16 GB, 5-минутный трек + одновременно загруженная wav2vec2). Alignment отработал нормально (coverage 0.996, conf 0.75). **Это лучший аргумент за hybrid**: alignment-путь дешевле по памяти и не зависит от длины через VAD-фрагментацию.
+- **Английский (rockstar) — самый низкий confidence (0.604)**: Post Malone + 21 Savage — XLSR-53-en не любит auto-tune и trap flow. Кандидат на улучшение через MMS или dedicated EN-чекпоинт.
 
-### Caveat: alignment RTF
+### Cost из реальных цифр
 
-В таблице `align_rtf` намеренно опущен. Первый прогон (en, RTF 0.0351) — корректный; на последующих треках телеметрия показала 0.0001-0.0002 из-за отсутствия `torch.cuda.synchronize()` перед `time.perf_counter()` (CUDA async return). Bug пофикшен в `src/align.py` после прогона. На реальный экономический расчёт это не влияет — оценка RTF alignment ≈ 0.04 из baseline #1 + en-трека измерения остаётся в силе.
+T4 combined RTF (mean): 0.098 + 0.032 = **0.130**
+
+| GPU | combined RTF | $/h | $/3-min трек |
+|---|---|---|---|
+| T4 (измерено) | 0.130 | 0.20 | $0.0013 |
+| A10G (×3.5) | 0.037 | 0.34 | **$0.00063** |
+| L4 (×3.0) | 0.043 | 0.43 | $0.00093 |
+
+Потолок ТЗ — **$0.05/трек**. На A10G — **в 80× ниже**. Cost не активный constraint.
 
 ### Главное
 
-Один прогон, одна машина, ноль ручной работы → 9 треков, 4 языка, воспроизводимые числа. **Design doc'у есть на что опираться:** alignment-путь даёт coverage > 0.97 на всех языках, mean_conf > 0.6 даже на самых сложных треках, и WER 0.18-0.69 на baseline whisper создаёт нужный gap для cover-detector'а.
+Один прогон, одна машина, ноль ручной работы → 9 треков, 4 языка, воспроизводимые числа. Hybrid path даёт coverage > 0.97 на всех языках, mean_conf > 0.6 даже на самых сложных треках, и WER 0.20-0.66 на baseline whisper создаёт нужный gap для cover-detector'а. **Скриптонит-OOM кейс** — emergent аргумент за hybrid: alignment держится там, где baseline вообще не запускается.

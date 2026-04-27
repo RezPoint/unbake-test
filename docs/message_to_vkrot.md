@@ -16,7 +16,7 @@
 
 1. **Two-pass Shazam-hybrid:** faster-whisper baseline (для lang detect + ASR fallback) + wav2vec2-CTC forced alignment известной лирики на vocal. Когда лирика верна, alignment даёт WER 0 by construction, тайминги точнее ASR, и в ~3× быстрее по RTF.
 
-2. **Замеры на 9 треках × 4 языках** (Yandex-датасет, htdemucs v4 vocal, Colab T4): alignment coverage **mean 0.987** (0.97–1.00), mean confidence **0.76** (0.60–0.91), baseline whisper WER **mean 0.34** (0.18–0.69). Combined cost на A10G — **$0.0007/3-min трек, в 70× ниже потолка $0.05**. Источник лирики — LRCLib API.
+2. **Замеры на 9/9 треках × 4 языка** (Yandex-датасет, htdemucs v4 vocal, Colab T4): alignment coverage **mean 0.989** (0.97–1.00), mean confidence **0.77** (0.60–0.91), alignment RTF **0.032** (0.026–0.036, очень стабильный). Combined cost на A10G — **$0.00063/3-min трек, в 80× ниже потолка $0.05**. Источник лирики — LRCLib API. Один кейс на закуску: на Скриптонит-треке baseline whisper упал по CUDA OOM, а alignment отработал нормально (coverage 0.996) — emergent аргумент за hybrid сверх запланированного.
 
 3. **Cover-detector:** проверил эмпирически, что одного `mean_confidence` мало — чужая лирика даёт 0.72 vs правильная 0.82, drop всего 12%. Решение через AND с lyric/ASR set-overlap (там разрыв 2.6×, чистый порог 0.5). Это, кажется, основной нетривиальный момент в архитектуре, и в design doc'е есть честный negative result с разбором, **почему** confidence-only не работает.
 

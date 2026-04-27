@@ -1,10 +1,10 @@
-align_coverage,align_mean_conf,align_model,align_rtf,align_status,baseline_audio_s,baseline_cer,baseline_lang_prob,baseline_rtf,baseline_wer,lang,n_ref_words,track
-0.9796,0.6043,jonatasgrosman/wav2vec2-large-xlsr-53-english,0.0351,ok,218.03,0.1697,1,0.073,0.2472,en,441,Post Malone & 21 Savage - rockstar
-0.9749,0.6667,jonatasgrosman/wav2vec2-large-xlsr-53-spanish,0.0002,ok,197.37,0.5385,1,0.329,0.6865,es,319,Peso Pluma & Anitta - BELLAKEO
-0.9958,0.7198,jonatasgrosman/wav2vec2-large-xlsr-53-spanish,0.0001,ok,214.09,0.3592,1,0.037,0.4644,es,239,Peso Pluma - BRUCE WAYNE
-0.9907,0.829,jonatasgrosman/wav2vec2-large-xlsr-53-spanish,0.0001,ok,209.47,0.1535,1,0.044,0.2047,es,215,Peso Pluma - SOLICITADO
-,,,,no_lyrics,261.2,,1,0.046,,fr,,Cœur de pirate - Place de la République
-0.9935,0.8024,jonatasgrosman/wav2vec2-large-xlsr-53-russian,0.0002,ok,192.7,0.1529,1,0.083,0.3453,ru,307,Miyagi & Эндшпиль - Last of Us
-0.9725,0.8081,jonatasgrosman/wav2vec2-large-xlsr-53-russian,0.0002,ok,168.04,0.1056,1,0.133,0.2353,ru,255,"Pharaoh - Дико, например"
-1.0,0.9054,jonatasgrosman/wav2vec2-large-xlsr-53-russian,0.0001,ok,243.27,0.0982,1,0.046,0.1807,ru,83,Би-2 - Полковнику никто не пишет
-,,,,no_lyrics,276.78,,1,0.226,,ru,,Скриптонит - Танцуй сама
+align_coverage,align_mean_conf,align_model,align_rtf,align_status,baseline_audio_s,baseline_cer,baseline_error,baseline_lang_prob,baseline_rtf,baseline_wer,lang,n_ref_words,track
+0.9796,0.6043,jonatasgrosman/wav2vec2-large-xlsr-53-english,0.0325,ok,218.03,0.1697,,1,0.072,0.2472,en,441,Post Malone & 21 Savage - rockstar
+0.9749,0.6667,jonatasgrosman/wav2vec2-large-xlsr-53-spanish,0.0301,ok,197.37,0.4475,,1,0.34,0.6552,es,319,Peso Pluma & Anitta - BELLAKEO
+0.9958,0.7198,jonatasgrosman/wav2vec2-large-xlsr-53-spanish,0.0313,ok,214.09,0.3592,,1,0.039,0.4644,es,239,Peso Pluma - BRUCE WAYNE
+0.9907,0.829,jonatasgrosman/wav2vec2-large-xlsr-53-spanish,0.0311,ok,209.47,0.1535,,1,0.044,0.2047,es,215,Peso Pluma - SOLICITADO
+0.9956,0.8563,jonatasgrosman/wav2vec2-large-xlsr-53-french,0.0359,ok,261.2,0.1776,,1,0.044,0.5044,fr,228,Cœur de pirate - Place de la République
+0.9935,0.8024,jonatasgrosman/wav2vec2-large-xlsr-53-russian,0.0293,ok,192.7,0.1529,,1,0.087,0.3453,ru,307,Miyagi & Эндшпиль - Last of Us
+0.9725,0.8081,jonatasgrosman/wav2vec2-large-xlsr-53-russian,0.0263,ok,168.04,0.1665,,1,0.118,0.302,ru,255,"Pharaoh - Дико, например"
+1.0,0.9054,jonatasgrosman/wav2vec2-large-xlsr-53-russian,0.0338,ok,243.27,0.2536,,1,0.037,0.3253,ru,83,Би-2 - Полковнику никто не пишет
+0.9964,0.7505,jonatasgrosman/wav2vec2-large-xlsr-53-russian,0.0364,ok,,,CUDA failed with error out of memory,,,,ru,,Скриптонит - Танцуй сама
