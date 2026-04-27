@@ -88,10 +88,14 @@ def align(
     model = Wav2Vec2ForCTC.from_pretrained(model_name).to(device).eval()
 
     inputs = processor(audio, sampling_rate=SR, return_tensors="pt").input_values.to(device)
+    if device == "cuda":
+        torch.cuda.synchronize()
     t0 = time.perf_counter()
     with torch.inference_mode():
         logits = model(inputs).logits
         log_probs = torch.log_softmax(logits, dim=-1)  # (1, T, V)
+    if device == "cuda":
+        torch.cuda.synchronize()
     infer_s = time.perf_counter() - t0
 
     words = _normalize(lyrics_text).split()

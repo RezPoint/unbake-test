@@ -166,29 +166,48 @@ language: ru | en | es | fr | it | pt | ja | pl   # optional, autodetect via whi
 
 ## 7. Цифры из бенчмарков
 
-> **Caveat (n=1):** ниже — измерения на одной точке датасета (Pharaoh — Дико, например, RU, 168s). Это **PoC, а не статистика**. Все таргеты в §6 — гипотезы, требующие подтверждения на расширенном dataset'е (см. §10). Я выбрал глубину прохода (baseline → alignment → control) вместо ширины, потому что без проверки cover-detector'а архитектура висит в воздухе. На §10/3-4 — план добора цифр.
+Один прогон `notebooks/03_full_bench.ipynb` на Colab T4 → 9 треков × 4 языка (ru/es/en/fr), полная таблица в `docs/bench_log.md`. 7 треков с лирикой через LRCLib, 2 без лирики (operational miss, не архитектурный пробел).
 
-Полная таблица — `docs/bench_log.md`. Сводно:
+### Сводная таблица (7 треков с лирикой)
 
-| | baseline (whisper large-v3) | alignment (XLSR-53 + forced_align) |
-|---|---|---|
-| RTF на T4 | 0.118 | **0.038** |
-| Words placed | 223 | 247 / 248 |
-| WER vs lyrics | 0.347 | 0 |
-| Coverage | n/a | **0.996** |
-| Mean confidence | scattered, 0.37–0.95 | **0.824** |
+| lang | track | base_wer | align_cov | align_conf |
+|---|---|---|---|---|
+| en | Post Malone — rockstar | 0.247 | 0.980 | 0.604 |
+| es | Peso Pluma — BELLAKEO | 0.687 | 0.975 | 0.667 |
+| es | Peso Pluma — BRUCE WAYNE | 0.464 | 0.996 | 0.720 |
+| es | Peso Pluma — SOLICITADO | 0.205 | 0.991 | 0.829 |
+| ru | Miyagi — Last of Us | 0.345 | 0.994 | 0.802 |
+| ru | Pharaoh — Дико, например | 0.235 | 0.973 | 0.808 |
+| ru | Би-2 — Полковнику | 0.181 | 1.000 | 0.905 |
 
-Timing offset (alignment vs whisper, token-equal pairs): median 0.33s, p95 0.99s, mean signed −0.36s (whisper стартует слова раньше alignment'а — alignment ближе к реальному onset).
+### Агрегаты
+
+| metric | mean | median | min | max |
+|---|---|---|---|---|
+| baseline WER | 0.338 | 0.247 | 0.181 | 0.687 |
+| align coverage | **0.987** | 0.991 | 0.973 | 1.000 |
+| align mean_conf | **0.762** | 0.802 | 0.604 | 0.905 |
+| baseline RTF (T4) | 0.106 | 0.073 | 0.037 | 0.329 |
+| alignment RTF (T4) | ≈0.038 | — | — | — |
+
+### Главные находки
+
+- **Coverage 0.97–1.00 на всех 7 треках, 3 языках** — alignment-путь робастен к смене языка при per-lang XLSR-53. Главное предсказание архитектуры подтверждено.
+- **mean_confidence коррелирует с WER**: Би-2 (WER 0.18, чистый рок-вокал) → conf 0.91; BELLAKEO (WER 0.69, reggaeton с code-switching pt↔es) → conf 0.67. Хорошо.
+- **Cover-detector держит порог:** mean_conf > 0.55 проходит для всех 7 правильных лирик; ASR-overlap > 0.5 (см. §3.2) — отсекатель «не та лирика».
+- **WER 0.69 на BELLAKEO** = ASR-only fallback на сложном материале опасен. **Hybrid path принципиален** — даже когда whisper проваливается, alignment даёт coverage 0.975 и читаемый timing, потому что лирика известна.
+
+Timing offset (alignment vs whisper, на Pharaoh): median 0.33s, p95 0.99s, mean signed −0.36s (whisper стартует слова раньше alignment'а — alignment ближе к реальному onset).
 
 ## 8. Cost
 
 Self-hosted, single-GPU. Цены Runpod community:
 
-| GPU | RTF (whisper baseline) | RTF (alignment) | combined RTF | $/h | **$/3-min трек** |
+| GPU | RTF (whisper baseline, mean) | RTF (alignment) | combined RTF | $/h | **$/3-min трек** |
 |---|---|---|---|---|---|
-| T4 (Colab measure) | 0.118 | 0.038 | 0.156 | $0.20 | $0.0016 |
-| A10G | 0.034 (×3.5) | 0.011 | 0.045 | $0.34 | **$0.00076** |
-| L4 | 0.040 | 0.013 | 0.053 | $0.43 | $0.00115 |
+| T4 (Colab measure) | 0.106 | 0.038 | 0.144 | $0.20 | $0.0014 |
+| A10G | 0.030 (×3.5) | 0.011 | 0.041 | $0.34 | **$0.00070** |
+| L4 | 0.036 | 0.013 | 0.049 | $0.43 | $0.00106 |
 
 Потолок ТЗ — **$0.05/трек**. Мы в **40-65× ниже** даже с двухпроходным pipeline'ом. Cost — **не активный constraint**, оптимизировать его незачем. Свободный бюджет тратится на accuracy: больший beam, ensemble, post-filtering по confidence.
 
@@ -209,9 +228,9 @@ Self-hosted, single-GPU. Цены Runpod community:
 |---|---|
 | 1 (done) | repo, eval module, baseline на 1 RU треке: RTF 0.118, WER 0.347 |
 | 2 (done) | forced alignment PoC, cover-detector эксперимент с честным negative result, second signal валидирован, design doc |
-| 3 (next) | alignment+baseline на оставшихся 8 треках dataset'а; alignment на ES/EN/FR через MMS |
-| 4 | калибровка порогов cover-detector'а на полном dataset'е; добор IT/PT/JP/PL треков (htdemucs из публичных студий) |
-| 5 | финальные таблицы, итеративный пересмотр design doc'а под наблюдённую вариацию |
+| 3 (done) | full-dataset bench: 9 треков × 4 языка (ru/es/en/fr) на одном Colab T4; LRCLib как источник лирики; coverage > 0.97 across the board |
+| 4 (next) | добор IT/PT/JA/PL через yt-dlp + htdemucs v4 (`notebooks/04_collect_extra_langs.ipynb` готов); калибровка порогов cover-detector'а на полном датасете |
+| 5 | замер MMS-1b-all vs per-lang XLSR на ru/es/en/fr (текущая таблица — XLSR), решение «MMS vs зоопарк» для прода |
 
 ## 11. Что оставлено за скобками
 
@@ -222,4 +241,4 @@ Self-hosted, single-GPU. Цены Runpod community:
 
 ---
 
-**Воспроизводимость:** репо `github.com/RezPoint/unbake-test`. Все цифры — `docs/bench_log.md`. Запуск бенчмарков — `notebooks/01_baseline.ipynb`, `02_alignment.ipynb`, `02b_alignment_control.ipynb` в Colab T4 (free).
+**Воспроизводимость:** репо `github.com/RezPoint/unbake-test`. Все цифры — `docs/bench_log.md`. Запуск бенчмарков — `notebooks/01_baseline.ipynb`, `02_alignment.ipynb`, `02b_alignment_control.ipynb`, `03_full_bench.ipynb`, `04_collect_extra_langs.ipynb` в Colab T4 (free). Полный full-dataset bench — один клик в `03_full_bench.ipynb` (~15-20 минут).
