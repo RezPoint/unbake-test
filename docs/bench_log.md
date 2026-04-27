@@ -216,3 +216,52 @@ T4 combined RTF (mean): 0.098 + 0.032 = **0.130**
 ### Главное
 
 Один прогон, одна машина, ноль ручной работы → 9 треков, 4 языка, воспроизводимые числа. Hybrid path даёт coverage > 0.97 на всех языках, mean_conf > 0.6 даже на самых сложных треках, и WER 0.20-0.66 на baseline whisper создаёт нужный gap для cover-detector'а. **Скриптонит-OOM кейс** — emergent аргумент за hybrid: alignment держится там, где baseline вообще не запускается.
+
+## 2026-04-27 — extended bench (IT, PT, JA, PL через MMS-1b-all)
+
+- Notebook: `notebooks/04_collect_extra_langs.ipynb`
+- Pipeline: yt-dlp (ytsearch1) → demucs htdemucs v4 → m4a 256k → LRCLib → batch_runner
+- Alignment модель для IT/PT/JA/PL: `facebook/mms-1b-all` (1100+ языков, единый чекпоинт)
+- Источник лирики: LRCLib API
+
+### Сводная таблица
+
+| lang | track | base_rtf | base_wer | align_rtf | align_cov | align_conf |
+|---|---|---|---|---|---|---|
+| it | Måneskin — I WANNA BE YOUR SLAVE | 0.061 | **0.355** | 0.0835 | 0.972 | 0.712 |
+| pt | Anitta — Envolver | OOM | — | 0.0968 | **0.990** | 0.730 |
+| pl | sanah — Szampan | OOM | — | 0.0955 | **1.000** | 0.886 |
+| ja | YOASOBI — Idol | 0.080 | 7.52* | 0.1111 | 0.213* | 0.868 |
+
+\* JA: word-based метрики не информативны из-за tokenization. Японский без пробелов; lyrics-файл whitespace-split дал 75 «токенов», alignment вернул 16 фразовых единиц (`'無敵の笑顔で荒らすメディア'` как один word), whisper выдал per-character timestamps (564 «слов»). Confidence 0.87 показывает, что **выравнивание само по себе работает** — артефакт метрики, не архитектуры.
+
+### MMS-1b-all vs XLSR-53 — эмпирический trade-off
+
+| модель | langs | align RTF mean | conf range |
+|---|---|---|---|
+| jonatasgrosman XLSR-53 (per-lang) | ru/en/es/fr | **0.032** | 0.604–0.905 |
+| facebook/mms-1b-all | it/pt/pl/ja | **0.097** | 0.712–0.886 |
+
+MMS в ~3× медленнее на T4 (1B параметров vs 300M), но операционно в 4-8× проще: один чекпоинт, 1100+ языков, не надо собирать зоопарк. Решение «MMS vs зоопарк» зависит от cost target — оба варианта в порядки ниже потолка $0.05.
+
+### Hybrid argument: 3 OOM-кейса на baseline whisper
+
+| трек | baseline | alignment |
+|---|---|---|
+| Скриптонит — Танцуй сама (ru) | CUDA OOM | coverage 0.996, conf 0.751 |
+| Anitta — Envolver (pt) | CUDA OOM | coverage 0.990, conf 0.730 |
+| sanah — Szampan (pl) | CUDA OOM | coverage 1.000, conf 0.886 |
+
+3/13 треков — baseline ASR упал по памяти на T4 (16 GB) при одновременной загрузке whisper-large-v3 + wav2vec2. Alignment отработал в каждом случае. **Wav2vec2 forced_align дешевле по памяти** (300M параметров vs 1.5B у whisper) и не нуждается в beam-search/condition-on-previous кэше. Это даёт hybrid-path операционное преимущество **сверх запланированного accuracy-преимущества**: на 3-минутных треках T4 по сути один whisper держит, два не помещается.
+
+### Финальные агрегаты (n=13 треков, 8 языков)
+
+| metric | mean | median | min | max | n |
+|---|---|---|---|---|---|
+| baseline WER (excl ja degen) | 0.378 | 0.345 | 0.205 | 0.655 | 9 |
+| baseline RTF (T4) | 0.092 | 0.067 | 0.037 | 0.340 | 10 |
+| **align coverage (excl ja)** | **0.988** | 0.992 | 0.972 | 1.000 | 12 |
+| **align mean_conf** | **0.780** | 0.802 | 0.604 | 0.905 | 13 |
+| **align RTF (T4, mixed)** | 0.052 | 0.034 | 0.026 | 0.111 | 13 |
+
+Combined T4 RTF (mean baseline + mean align) ≈ 0.144 → A10G ×3.5 → **0.041 → $0.0007/3-min трек**, в **~70× ниже** потолка $0.05.

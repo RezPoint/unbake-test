@@ -8,3 +8,7 @@ align_coverage,align_mean_conf,align_model,align_rtf,align_status,baseline_audio
 0.9725,0.8081,jonatasgrosman/wav2vec2-large-xlsr-53-russian,0.0263,ok,168.04,0.1665,,1,0.118,0.302,ru,255,"Pharaoh - Дико, например"
 1.0,0.9054,jonatasgrosman/wav2vec2-large-xlsr-53-russian,0.0338,ok,243.27,0.2536,,1,0.037,0.3253,ru,83,Би-2 - Полковнику никто не пишет
 0.9964,0.7505,jonatasgrosman/wav2vec2-large-xlsr-53-russian,0.0364,ok,,,CUDA failed with error out of memory,,,,ru,,Скриптонит - Танцуй сама
+0.9718,0.7122,facebook/mms-1b-all,0.0835,ok,173.45,0.3387,,1,0.061,0.3549,it,355,Maneskin - I WANNA BE YOUR SLAVE
+0.2133,0.8675,facebook/mms-1b-all,0.1111,ok,225.84,0.7608,,1,0.08,7.52,ja,75,YOASOBI - Idol
+1.0,0.8855,facebook/mms-1b-all,0.0955,ok,,,CUDA failed with error out of memory,,,,pl,,sanah - Szampan
+0.9895,0.7297,facebook/mms-1b-all,0.0968,ok,,,CUDA failed with error out of memory,,,,pt,,Anitta - Envolver

@@ -166,41 +166,48 @@ language: ru | en | es | fr | it | pt | ja | pl   # optional, autodetect via whi
 
 ## 7. Цифры из бенчмарков
 
-Один прогон `notebooks/03_full_bench.ipynb` на Colab T4 → 9 треков × 4 языка (ru/es/en/fr), полная таблица в `docs/bench_log.md`. **Все 9/9 треков с лирикой** через LRCLib (с Unicode-NFC + ASCII-fold + no-artist fallbacks для редких имён вроде Cœur de pirate).
+Полный прогон `03_full_bench.ipynb` (9 треков, ru/es/en/fr) + `04_collect_extra_langs.ipynb` (4 трека, it/pt/ja/pl) на Colab T4 → **13 треков × 8 языков**. Полная таблица — `docs/bench_log.md`. Все треки с лирикой через LRCLib (NFC + ASCII-fold + no-artist fallbacks).
 
 ### Сводная таблица
 
-| lang | track | base_wer | align_cov | align_conf |
-|---|---|---|---|---|
-| en | Post Malone — rockstar | 0.247 | 0.980 | 0.604 |
-| es | Peso Pluma — BELLAKEO | 0.655 | 0.975 | 0.667 |
-| es | Peso Pluma — BRUCE WAYNE | 0.464 | 0.996 | 0.720 |
-| es | Peso Pluma — SOLICITADO | 0.205 | 0.991 | 0.829 |
-| fr | Cœur de pirate — République | 0.504 | 0.996 | 0.856 |
-| ru | Miyagi — Last of Us | 0.345 | 0.994 | 0.802 |
-| ru | Pharaoh — Дико, например | 0.302 | 0.973 | 0.808 |
-| ru | Би-2 — Полковнику | 0.325 | 1.000 | 0.905 |
-| ru | Скриптонит — Танцуй сама | OOM* | 0.996 | 0.751 |
+| lang | track | model | base_wer | align_cov | align_conf | align_rtf |
+|---|---|---|---|---|---|---|
+| en | Post Malone — rockstar | XLSR-53-en | 0.247 | 0.980 | 0.604 | 0.033 |
+| es | Peso Pluma — BELLAKEO | XLSR-53-es | 0.655 | 0.975 | 0.667 | 0.030 |
+| es | Peso Pluma — BRUCE WAYNE | XLSR-53-es | 0.464 | 0.996 | 0.720 | 0.031 |
+| es | Peso Pluma — SOLICITADO | XLSR-53-es | 0.205 | 0.991 | 0.829 | 0.031 |
+| fr | Cœur de pirate — République | XLSR-53-fr | 0.504 | 0.996 | 0.856 | 0.036 |
+| ru | Miyagi — Last of Us | XLSR-53-ru | 0.345 | 0.994 | 0.802 | 0.029 |
+| ru | Pharaoh — Дико, например | XLSR-53-ru | 0.302 | 0.973 | 0.808 | 0.026 |
+| ru | Би-2 — Полковнику | XLSR-53-ru | 0.325 | 1.000 | 0.905 | 0.034 |
+| ru | Скриптонит — Танцуй сама | XLSR-53-ru | **OOM** | 0.996 | 0.751 | 0.036 |
+| it | Måneskin — I WANNA BE YOUR SLAVE | MMS-1b-all | 0.355 | 0.972 | 0.712 | 0.084 |
+| pt | Anitta — Envolver | MMS-1b-all | **OOM** | 0.990 | 0.730 | 0.097 |
+| pl | sanah — Szampan | MMS-1b-all | **OOM** | 1.000 | 0.886 | 0.096 |
+| ja | YOASOBI — Idol | MMS-1b-all | 7.52† | 0.213† | 0.868 | 0.111 |
 
-\* baseline whisper упал по `CUDA out of memory` на Colab T4. Alignment отработал нормально — отдельный аргумент за hybrid path: wav2vec2 forced_align дешевле по памяти и не зависит от длины через VAD-фрагментацию.
+**OOM:** baseline whisper-large-v3 упал по `CUDA out of memory` на T4 (16 GB) при одновременной загрузке wav2vec2. **Alignment отработал в 3/3 случаях** — отдельный (emergent) аргумент за hybrid: wav2vec2 forced_align дешевле по памяти.
 
-### Агрегаты
+**† JA — артефакт word-based метрик на CJK.** Японский без пробелов; lyrics whitespace-split дал 75 «токенов», alignment вернул 16 фразовых единиц (`'無敵の笑顔で荒らすメディア'` как один word), whisper — per-character timestamps (564). Confidence 0.87 показывает, что **alignment корректен**; нужна mecab-/char-tokenized метрика для JA/ZH/KO в проде. См. §9.
+
+### Агрегаты (13 треков × 8 языков)
 
 | metric | mean | median | min | max | n |
 |---|---|---|---|---|---|
-| baseline WER | 0.381 | 0.335 | 0.205 | 0.655 | 8 |
-| **align coverage** | **0.989** | 0.994 | 0.972 | 1.000 | 9 |
-| **align mean_conf** | **0.771** | 0.802 | 0.604 | 0.905 | 9 |
-| baseline RTF (T4) | 0.098 | 0.058 | 0.037 | 0.340 | 8 |
-| **alignment RTF (T4)** | **0.032** | 0.031 | 0.026 | 0.036 | 9 |
+| baseline WER (excl ja degen) | 0.378 | 0.345 | 0.205 | 0.655 | 9 |
+| **align coverage** (excl ja) | **0.988** | 0.992 | 0.972 | 1.000 | 12 |
+| **align mean_conf** | **0.780** | 0.802 | 0.604 | 0.905 | 13 |
+| baseline RTF (T4) | 0.092 | 0.067 | 0.037 | 0.340 | 10 |
+| **align RTF — XLSR-53** | **0.032** | 0.031 | 0.026 | 0.036 | 9 |
+| **align RTF — MMS-1b-all** | 0.097 | 0.096 | 0.084 | 0.111 | 4 |
 
 ### Главные находки
 
-- **Coverage 0.97–1.00 на всех 9 треках, 4 языках** — alignment-путь робастен к смене языка при per-lang XLSR-53. Главное предсказание архитектуры подтверждено.
-- **alignment RTF стабильный 0.026–0.036** (разброс 1.4×) — predictable compute независимо от языка/сложности, следствие fixed-cost wav2vec2 forward pass. Полезно для capacity planning.
-- **mean_confidence коррелирует с WER**: Би-2 (conf 0.91, WER 0.33, чистый рок-вокал) ↔ BELLAKEO (conf 0.67, WER 0.66, reggaeton с code-switching pt↔es). Confidence чутко реагирует на качество vocal.
-- **Cover-detector держит порог:** mean_conf > 0.55 проходит для всех 9 правильных лирик; ASR-overlap > 0.5 (см. §3.2) — отсекатель «не та лирика».
-- **3 кейса, где ASR-only path плох или вовсе падает** (BELLAKEO WER 0.66, République WER 0.50, Скриптонит OOM) — alignment вытащил coverage > 0.97 на всех. **Hybrid принципиален**: даже когда whisper проваливается, alignment работает, потому что лирика известна.
+- **Coverage > 0.97 на 12/13 треках, 8 языках** — alignment-путь робастен к смене языка как на per-lang XLSR-53, так и на multilingual MMS-1b-all. Архитектурное предсказание подтверждено.
+- **MMS-1b-all в ~3× медленнее XLSR-53** на T4 (~0.097 vs ~0.032) — ожидаемо при 1B vs 300M параметров. Trade-off «MMS vs зоопарк» эмпирический: оба варианта в порядки ниже cost-потолка, выбор по операционной простоте.
+- **mean_confidence коррелирует с WER** (где он осмыслен): Би-2 (conf 0.91, WER 0.33) ↔ BELLAKEO (conf 0.67, WER 0.66, reggaeton + code-switch).
+- **Cover-detector держит порог:** mean_conf > 0.55 проходит для всех 13 правильных лирик; ASR-overlap > 0.5 (§3.2) — отсекатель «не та лирика».
+- **3 OOM-кейса на baseline whisper** (Скриптонит, Anitta, sanah) — alignment вытащил coverage 0.99-1.00 на всех. **Wav2vec2 forced_align дешевле по памяти** (300M vs 1.5B), не нуждается в beam/condition-on-prev кэше. На 3-минутных треках T4 один whisper держит, два не помещается — hybrid-path **операционное** преимущество сверх accuracy-преимущества.
 
 Timing offset (alignment vs whisper, на Pharaoh): median 0.33s, p95 0.99s, mean signed −0.36s (whisper стартует слова раньше alignment'а — alignment ближе к реальному onset).
 
@@ -208,13 +215,15 @@ Timing offset (alignment vs whisper, на Pharaoh): median 0.33s, p95 0.99s, mea
 
 Self-hosted, single-GPU. Цены Runpod community:
 
-| GPU | RTF (whisper baseline, mean) | RTF (alignment) | combined RTF | $/h | **$/3-min трек** |
+| GPU | RTF (whisper baseline, mean) | RTF (align, mean mixed) | combined RTF | $/h | **$/3-min трек** |
 |---|---|---|---|---|---|
-| T4 (Colab, измерено) | 0.098 | 0.032 | 0.130 | $0.20 | $0.0013 |
-| A10G (×3.5 от T4) | 0.028 | 0.009 | 0.037 | $0.34 | **$0.00063** |
-| L4 (×3.0) | 0.033 | 0.011 | 0.043 | $0.43 | $0.00093 |
+| T4 (Colab, измерено) | 0.092 | 0.052 | 0.144 | $0.20 | $0.0014 |
+| A10G (×3.5 от T4) | 0.026 | 0.015 | 0.041 | $0.34 | **$0.00070** |
+| L4 (×3.0) | 0.031 | 0.017 | 0.048 | $0.43 | $0.00103 |
 
-Потолок ТЗ — **$0.05/трек**. На A10G — **в 80× ниже** даже с двухпроходным pipeline'ом. Cost — **не активный constraint**, оптимизировать его незачем. Свободный бюджет тратится на accuracy: больший beam, ensemble, post-filtering по confidence.
+Потолок ТЗ — **$0.05/трек**. На A10G — **в ~70× ниже**. Если выбрать XLSR-only (per-lang зоопарк) для всех языков, align RTF падает до 0.032 → A10G **$0.00060/трек, в 80× ниже**.
+
+Cost — **не активный constraint**. Свободный бюджет тратится на accuracy: больший beam, ensemble, post-filtering по confidence.
 
 ## 9. Риски и unknowns
 
@@ -224,7 +233,7 @@ Self-hosted, single-GPU. Цены Runpod community:
 | htdemucs v4 (не ft) даёт грязный vocal на back-vocals/гармониях → alignment confidence обваливается на тех частях | per-segment confidence уже есть; в API вернём слова с conf < 0.4 как `low_confidence: true` |
 | Cover/remix с почти-той-же лирикой (1-2 слова отличаются) — `asr_lyric_overlap` останется высоким, alignment даст невидимо-неправильный output | дополнительный word-by-word check: position-aware diff lyric vs asr (не set-overlap, а Levenshtein) |
 | Ad-libs и `(пау-пау-пау)` в Genius-лирике | strip-list в `text_wer.py` уже работает; в проде — конфигурируемый regex |
-| Японский / польский — не валидированы | следующий шаг роадмапа |
+| Word-based метрики (WER, coverage) ломаются на CJK (no-whitespace tokenization) | для JA/ZH/KO — char-level coverage или mecab/jieba-tokenized метрика; в эмпирике на YOASOBI alignment корректен (conf 0.87), но формальный coverage 0.21 — артефакт счёта |
 | LRCLib/Genius miss rate | source mixing: LRCLib → Musixmatch → manual; для тестовой системы 1 источник OK |
 
 ## 10. Roadmap
@@ -234,8 +243,8 @@ Self-hosted, single-GPU. Цены Runpod community:
 | 1 (done) | repo, eval module, baseline на 1 RU треке: RTF 0.118, WER 0.347 |
 | 2 (done) | forced alignment PoC, cover-detector эксперимент с честным negative result, second signal валидирован, design doc |
 | 3 (done) | full-dataset bench: 9 треков × 4 языка (ru/es/en/fr) на одном Colab T4; LRCLib как источник лирики; coverage > 0.97 across the board |
-| 4 (next) | добор IT/PT/JA/PL через yt-dlp + htdemucs v4 (`notebooks/04_collect_extra_langs.ipynb` готов); калибровка порогов cover-detector'а на полном датасете |
-| 5 | замер MMS-1b-all vs per-lang XLSR на ru/es/en/fr (текущая таблица — XLSR), решение «MMS vs зоопарк» для прода |
+| 4 (done) | добор IT/PT/JA/PL через yt-dlp + htdemucs v4: alignment работает на всех 8 языках; подтверждено эмпирически, что MMS в ~3× медленнее per-lang XLSR-53 |
+| 5 (next) | калибровка порогов cover-detector'а на расширенном датасете; CJK-метрика (mecab tokenization) для JA/KO/ZH; замер MMS vs per-lang XLSR на ru/es/en/fr — выбор «зоопарк vs единый чекпоинт» для прода |
 
 ## 11. Что оставлено за скобками
 
