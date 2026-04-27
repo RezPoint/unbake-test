@@ -15,6 +15,7 @@ import dataclasses
 import json
 import time
 import traceback
+import unicodedata
 from pathlib import Path
 
 from ..align import align
@@ -36,6 +37,25 @@ ALIGN_MODELS = {
 
 def _stem(name: str) -> str:
     return name.removesuffix(".m4a").removesuffix(".wav")
+
+
+def _find_lyrics(lyrics_root: Path, lang: str, stem: str) -> Path | None:
+    """Find lyrics file robustly across Unicode normalization forms.
+
+    Yandex API may return filenames in NFD while lyrics writer used NFC
+    (or vice versa). Try NFC, NFD, then case-insensitive glob fallback."""
+    lang_dir = lyrics_root / lang
+    if not lang_dir.exists():
+        return None
+    for form in ("NFC", "NFD"):
+        candidate = lang_dir / f"{unicodedata.normalize(form, stem)}.txt"
+        if candidate.exists():
+            return candidate
+    target_nfc = unicodedata.normalize("NFC", stem)
+    for f in lang_dir.glob("*.txt"):
+        if unicodedata.normalize("NFC", f.stem) == target_nfc:
+            return f
+    return None
 
 
 def run(
@@ -81,8 +101,8 @@ def run(
                 row["baseline_error"] = str(e)
 
             # --- WER vs lyrics ---
-            lyr = lyrics_root / lang / f"{stem}.txt"
-            if lyr.exists() and base_json.exists():
+            lyr = _find_lyrics(lyrics_root, lang, stem)
+            if lyr is not None and base_json.exists():
                 try:
                     wer = text_wer(lyr, base_json)
                     row["baseline_wer"] = round(wer["wer"], 4)
@@ -96,7 +116,7 @@ def run(
             # --- ALIGNMENT ---
             align_json = out_root / f"align_{lang}_{stem}.json"
             align_tele = out_root / f"align_{lang}_{stem}.telemetry.json"
-            if not lyr.exists():
+            if lyr is None:
                 print("alignment: SKIP (no lyrics)")
                 row["align_status"] = "no_lyrics"
             else:

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import re
 import time
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -36,24 +37,39 @@ def _strip_synced_marks(lyrics: str) -> str:
     return re.sub(r"\[\d{1,2}:\d{1,2}\.\d{1,3}\]", "", lyrics).strip()
 
 
-def search(track_name: str, artist_name: str) -> LyricResult | None:
+def _query_lrclib(track_name: str, artist_name: str) -> LyricResult | None:
     params = {"track_name": track_name, "artist_name": artist_name}
     r = requests.get(SEARCH, params=params, headers={"User-Agent": UA}, timeout=15)
     r.raise_for_status()
     items = r.json()
-    if not items:
-        return None
-    it = items[0]
-    plain = it.get("plainLyrics") or _strip_synced_marks(it.get("syncedLyrics", ""))
-    if not plain.strip():
-        return None
-    return LyricResult(
-        track_name=it.get("trackName", track_name),
-        artist_name=it.get("artistName", artist_name),
-        plain_lyrics=plain,
-        synced_lyrics=it.get("syncedLyrics"),
-        duration=it.get("duration"),
-    )
+    for it in items:
+        plain = it.get("plainLyrics") or _strip_synced_marks(it.get("syncedLyrics", ""))
+        if plain.strip():
+            return LyricResult(
+                track_name=it.get("trackName", track_name),
+                artist_name=it.get("artistName", artist_name),
+                plain_lyrics=plain,
+                synced_lyrics=it.get("syncedLyrics"),
+                duration=it.get("duration"),
+            )
+    return None
+
+
+def search(track_name: str, artist_name: str) -> LyricResult | None:
+    """LRCLib search with diacritic-strip and artist-trim fallbacks."""
+    res = _query_lrclib(track_name, artist_name)
+    if res:
+        return res
+    # fallback 1: ASCII-folded artist (Cœur → Coeur, é → e)
+    folded_artist = unicodedata.normalize("NFKD", artist_name).encode("ascii", "ignore").decode()
+    folded_track = unicodedata.normalize("NFKD", track_name).encode("ascii", "ignore").decode()
+    if folded_artist != artist_name or folded_track != track_name:
+        res = _query_lrclib(folded_track or track_name, folded_artist or artist_name)
+        if res:
+            return res
+    # fallback 2: только track_name, без artist (LRCLib иногда не нормализует артиста)
+    res = _query_lrclib(track_name, "")
+    return res
 
 
 # Manual mapping: filename → (artist, track) для треков из Yandex-датасета.
@@ -93,7 +109,9 @@ def fetch_dataset_lyrics(out_root: Path = Path("data/lyrics")) -> dict[str, str]
     status: dict[str, str] = {}
     for fname, (artist, track) in DATASET_QUERIES.items():
         lang = LANG_MAP[fname]
-        out = out_root / lang / fname.replace(".m4a", ".txt")
+        # Normalize to NFC so paths match audio filenames written by Yandex API
+        out_name = unicodedata.normalize("NFC", fname.replace(".m4a", ".txt"))
+        out = out_root / lang / out_name
         if out.exists() and out.stat().st_size > 100:
             status[fname] = "skip (have)"
             continue
