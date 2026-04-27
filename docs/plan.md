@@ -6,9 +6,15 @@
 - [x] Скелет репо, eval-модуль (`src/eval/`), smoke-тесты.
 - [x] Baseline runner (`src/baseline.py`).
 - [x] Скачать их датасет с Yandex Disk локально, посмотреть структуру.
-- [ ] Push на GitHub (приватный).
-- [ ] Залить датасет в Google Drive один раз, в Colab монтировать.
-- [ ] Прогнать baseline на 1 треке в Colab T4 → есть ли GPU вообще, какие RTF/cost.
+- [x] Push на GitHub (публичный — без auth-возни в Colab).
+- [x] Прогнать baseline на 1 треке в Colab T4. **RTF=0.118, $0.0012/трек на T4** → cost ниже потолка в 50×.
+
+### Главный сдвиг по цифрам
+
+Cost ($0.05/3min трек) **не является активным constraint** — реалистичный self-hosted setup на T4/A10G даёт $0.001-0.0006 за трек. Это значит:
+- Нет смысла оптимизировать cost. Основной приоритет — accuracy.
+- Можно тратить compute на двухпроходные схемы: ASR → forced alignment cross-check, ensemble, бóльший beam.
+- В design doc этот вывод нужно проиллюстрировать таблицей.
 
 ## Что в их датасете
 
