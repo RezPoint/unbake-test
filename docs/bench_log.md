@@ -131,9 +131,30 @@ Cover-detector в Shazam-hybrid pipeline должен использовать *
 
 → Дизайн API: `confidence` — soft-flag, `asr_match_rate` — hard-flag, fallback на ASR-only при низком обоих.
 
+## 2026-04-27 — second signal: ASR-vs-lyrics set overlap
+
+Локальный счёт без GPU. На том же baseline whisper-транскрипте Pharaoh-трека считаем `|lyric_set ∩ asr_set| / |lyric_set|` для двух кандидатных лирик:
+
+| candidate lyrics | overlap rate |
+|---|---|
+| Pharaoh — Дико, например (правильная) | **0.863** (214/248) |
+| Кино — Группа крови (чужая) | **0.333** (30/90) |
+
+**Разрыв 2.6×**, threshold ≈ 0.5 даёт чистое разделение. Сигнал крепкий и дешёвый — считается за миллисекунды на CPU после baseline ASR прогона.
+
+### Финальный cover-detector для design doc
+
+```
+is_correct_lyrics = (mean_alignment_confidence > 0.55)
+                    AND (asr_lyric_overlap > 0.5)
+```
+
+- `mean_alignment_confidence` — soft signal, отсекает дополнительные гнилые случаи (плохое разделение htdemucs, тихий vocal).
+- `asr_lyric_overlap` — hard signal, ловит подмену лирики и каверы с другим текстом.
+- Калибровка порогов на расширенном датасете (8 треков × 8 языков) — задача для дальнейшей работы.
+
 ### Что дальше
 
-1. Подтвердить на других треках dataset'а — повторить same/other триплет на ещё 1-2 RU-треках, чтобы увидеть распределение confidence на правильной лирике.
-2. Прогнать compare_timing(alignment_other_song, baseline_pharaoh) → проверить ASR-vs-alignment match-rate как hard-сигнал. Если на other_song matching <5% — bingo, у нас есть надёжный детектор.
-3. ES / EN / FR — `facebook/mms-1b-all`.
-4. Design doc — теперь честно: показать ловушку с confidence, обосновать второй сигнал.
+1. ES/EN/FR — `facebook/mms-1b-all` (multilingual CTC, поддерживает 1100+ языков).
+2. Прогнать alignment+baseline на остальных 8 треках для статистики порогов.
+3. **Писать design doc** — у нас есть всё: метрики, baseline, alignment-путь, проверенный cover-detector, cost-расчёты.
