@@ -1,0 +1,6 @@
+faster-whisper>=1.0.3
+jiwer>=3.0
+numpy
+soundfile
+librosa
+pydantic>=2

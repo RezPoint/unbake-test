@@ -1,0 +1,12 @@
+data/
+*.m4a
+*.mp3
+*.wav
+*.flac
+__pycache__/
+*.pyc
+.venv/
+.idea/
+.vscode/
+.DS_Store
+*.ipynb_checkpoints
