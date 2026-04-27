@@ -106,9 +106,34 @@
 
 → Confidence — сразу годный сигнал «правильная ли это лирика». Cross-check ASR-vs-alignment WER (как у нас 30% несовпадений) — second signal.
 
+## 2026-04-27 — alignment control
+
+Notebook: `notebooks/02b_alignment_control.ipynb`. Цель — проверить, падает ли `mean_confidence`, когда лирика **не та**.
+
+| вариант | mean_confidence | coverage | n_aligned | n_lyric_words |
+|---|---|---|---|---|
+| same lyrics | **0.824** | 0.996 | 247 | 248 |
+| shuffled (same words, wrong order) | 0.664 | 0.996 | 247 | 248 |
+| other song (Кино — Группа крови) | **0.725** | 1.000 | 144 | 144 |
+
+### Главный вывод (плохой для простой гипотезы)
+
+`mean_confidence` **не является самостоятельным cover-detector'ом**. Чужая лирика дала 0.72 — drop всего 12% от правильной 0.82. Хуже того: shuffled (0.66) оказался ниже чужой песни (0.72) — то есть путаница порядка bites больнее, чем полная подмена контента.
+
+**Почему:** forced_align *forced* — он ОБЯЗАН поставить каждый токен куда-то. CTC всегда находит «наименее плохой» фрейм. Частые RU-слова из чужой песни («я», «не», «мне», «в», «на») фонетически цепляются за подходящие участки аудио → confidence остаётся приличным.
+
+### Архитектурное следствие
+
+Cover-detector в Shazam-hybrid pipeline должен использовать **два сигнала** и принимать решение по AND/OR:
+
+1. `mean_confidence < 0.55` (пороги откалибровать на расширенном датасете) — **слабый** сигнал.
+2. **ASR-vs-alignment word-match-rate**: прогон baseline whisper параллельно с alignment, считаем долю слов, попавших по тексту. На same — 70% (см. compare_timing). На other_song ожидаем единицы процентов.
+
+→ Дизайн API: `confidence` — soft-flag, `asr_match_rate` — hard-flag, fallback на ASR-only при низком обоих.
+
 ### Что дальше
 
-1. Прогнать alignment + baseline на остальных 8 треках (RU/ES/EN/FR), повторить замеры → стабильность RTF и coverage.
-2. Тест на «не той» лирике: подсунуть лирику другой песни → confidence должна упасть в 2-3× (это валидация cover-detector).
-3. ES / EN / FR — взять `facebook/mms-1b-all` (поддерживает 1100+ языков) или per-language wav2vec2 чекпоинты.
-4. Prep design doc на этих цифрах.
+1. Подтвердить на других треках dataset'а — повторить same/other триплет на ещё 1-2 RU-треках, чтобы увидеть распределение confidence на правильной лирике.
+2. Прогнать compare_timing(alignment_other_song, baseline_pharaoh) → проверить ASR-vs-alignment match-rate как hard-сигнал. Если на other_song matching <5% — bingo, у нас есть надёжный детектор.
+3. ES / EN / FR — `facebook/mms-1b-all`.
+4. Design doc — теперь честно: показать ловушку с confidence, обосновать второй сигнал.
